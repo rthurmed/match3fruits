@@ -1,4 +1,4 @@
-import kaplay, { AreaComp, GameObj, PosComp, SpriteComp, Vec2 } from "kaplay";
+import kaplay, { Vec2 } from "kaplay";
 
 interface Item {
     pos: Vec2;
@@ -9,7 +9,8 @@ interface Item {
 
 const SPRITE_SIZE = 64;
 const BOARD_COLS = 5;
-const BOARD_ROWS = 8;
+const BOARD_ROWS = 6;
+const PREVIEW_MOVEMENT_SPEED = 40;
 // const GAP = 10;
 
 const k = kaplay({
@@ -45,11 +46,23 @@ k.scene("main", () => {
         k.timer(),
     ]);
 
+    const playerController = {
+        focusedIndex: -1,
+    }
+
+    const itemPreview = game.add([
+        k.sprite("donut"),
+        k.pos(-100, -100),
+        k.opacity(0),
+        k.z(100),
+    ]);
+
     const board = game.add([
         k.area({
             shape: new k.Rect(k.vec2(), SPRITE_SIZE * BOARD_COLS, SPRITE_SIZE * BOARD_ROWS)
         }),
-        k.pos( // centralizes board
+        // centralizes board
+        k.pos(
             (k.width() - SPRITE_SIZE * BOARD_COLS) / 2,
             (k.height() - SPRITE_SIZE * BOARD_ROWS) / 2
         ),
@@ -101,11 +114,29 @@ k.scene("main", () => {
         }
     });
 
-    board.onMousePress((button) => {
+    board.onUpdate(() => {
+        const offseted = k.mousePos().add(k.vec2(SPRITE_SIZE / -2, SPRITE_SIZE / -2));
+        itemPreview.pos = itemPreview.pos.lerp(offseted, k.dt() * PREVIEW_MOVEMENT_SPEED);
+    });
+
+    board.onMousePress((_button) => {
         const mousePos = k.mousePos();
         const index = board.getIndex(board.tile(mousePos));
+        if (index < 0 || index >= items.length) {
+            return;
+        }
         const item = items[index];
         item.visible = false;
-    })
+        itemPreview.pos = board.toWorld(item.pos);
+        itemPreview.sprite = item.sprite;
+        itemPreview.opacity = 1;
+        playerController.focusedIndex = index;
+    });
+
+    board.onMouseRelease((_button) => {
+        itemPreview.pos = k.vec2(-100, -100);
+        itemPreview.opacity = 0;
+        items[playerController.focusedIndex].visible = true;
+    });
 });
 k.go("main");
